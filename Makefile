@@ -8,13 +8,13 @@ CC=gcc
 INCLUDE_PATHS = -I. -I$(PICOTCP_BUILD)/ -I$(PICOTCP_BUILD)/build/include -I$(PICOTCP_BUILD)/build/modules
 LIBRARY_PATHS = -L$(PICOTCP_BUILD)/build/lib/
 LIBRARIES = -lpicotcp
-OBJ = main.o 
+OBJ = main.o pico_http_server.o pico_http_util.o
 
 CFLAGS= $(INCLUDE_PATHS) $(LIBRARY_PATHS) $(LIBRARIES)
 CFLAGS += -ggdb -Wall -Wextra
 .PHONY: clean
 
-all: barlights
+all: barlights 
 
 
 %.o: %.c $(PICOTCP_BUILD)/build/lib/libpicotcp.a
@@ -26,7 +26,7 @@ barlights: $(OBJ)
 $(PICOTCP_BUILD)/build/lib/libpicotcp.a:
 	@make -C $(PICOTCP) posix 
 	@make -C $(PICOTCP)
-		
+			
 tun:
 	sudo ifconfig tun0 192.168.2.10/24
         
