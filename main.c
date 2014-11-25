@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "pico_stack.h"
 #include "pico_config.h"
@@ -20,6 +21,7 @@
  ------------------------------------------------------------------------------*/
 static void serverWakeup(uint16_t ev, uint16_t conn);
 static void picoTickTask(void);
+void getRgbFromResource(char *resource, uint8_t *r, uint8_t *g, uint8_t *b);
 
 /*------------------------------------------------------------------------------
  global variable declarations
@@ -32,6 +34,30 @@ char http_buffer[SIZE];
  implementation code
  --------------------------------------------------------------------------------*/
 
+void getRgbFromResource(char *resource, uint8_t *r, uint8_t *g, uint8_t *b) {
+
+	char* token = strtok(&resource[11], "-");
+	int i = 0;
+
+	while (token) {
+		switch (i) {
+		case 0:
+			*r = atoi(token);
+			break;
+		case 1:
+			*g = atoi(token);
+			break;
+		case 2:
+			*b = atoi(token);
+			break;
+		default:
+			break;
+		}
+		token = strtok(NULL, "-");
+		i++;
+	}
+}
+
 void serverWakeup(uint16_t ev, uint16_t conn) {
 	static FILE * f;
 	char buffer[SIZE];
@@ -42,23 +68,32 @@ void serverWakeup(uint16_t ev, uint16_t conn) {
 	}
 	if (ev & EV_HTTP_REQ) // new header received
 	{
-		int read;
+		//int read;
 		char * resource;
 		printf("Header request was received...\n");
 		printf("> Resource : %s\n", pico_http_getResource(conn));
 		resource = pico_http_getResource(conn);
+
 		// Accepting request
-		if (strcmp(resource, "/") == 0 || strcmp(resource, "index.html") == 0 || strcmp(resource, "/index.html") == 0) {
+		/*if (strcmp(resource, "/") == 0 || strcmp(resource, "index.html") == 0 || strcmp(resource, "/index.html") == 0) {
+		 printf("Accepted connection...\n");
+		 pico_http_respond(conn, HTTP_RESOURCE_FOUND);
+		 f = fopen("html/index.html", "r");
+		 if (!f) {
+		 fprintf(stderr, "Unable to open the file /test/examples/index.html\n");
+		 exit(1);
+		 }
+		 read = fread(buffer, 1, SIZE, f);
+		 pico_http_submitData(conn, buffer, read);
+		 } else*/
+		if (strstr(resource, "rgb")) {
+			uint8_t r, g, b;
 			printf("Accepted connection...\n");
+
 			pico_http_respond(conn, HTTP_RESOURCE_FOUND);
-			f = fopen("html/index.html", "r");
-			if(!f)
-			{
-				fprintf(stderr, "Unable to open the file /test/examples/index.html\n");
-				exit(1);
-			}
-			read = fread(buffer, 1, SIZE, f);
-			pico_http_submitData(conn, buffer, read);
+			getRgbFromResource(resource, &r, &g, &b);
+			printf("Received rgb values: %d %d %d\n", r, g, b);
+
 		} else {
 			// reject
 			printf("Rejected connection...\n");
@@ -113,8 +148,7 @@ static void picoTickTask(void) {
 		exit(1);
 	}
 
-    pico_ipv4_link_add(pico_dev, my_ip, netmask);
-
+	pico_ipv4_link_add(pico_dev, my_ip, netmask);
 
 	pico_http_server_start(0, serverWakeup);
 
