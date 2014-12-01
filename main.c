@@ -92,13 +92,13 @@ void serverWakeup(uint16_t ev, uint16_t conn) {
 			getRgbFromResource(&resource[11], &r, &g, &b);
 			DEBUG_PRINT("Received rgb values: %d %d %d\n", r, g, b);
 
-		} else if (strcmp(resource, "/") == 0) {
-			resource = "/index.html";
 		} else {
-
+			if (strcmp(resource, "/") == 0) {
+				resource = "/index.html";
+			}
 			/* search in flash resources */
 			struct Www_file * www_file;
-			www_file = find_www_file((const char *)resource + 1);
+			www_file = find_www_file((const char *) resource + 1);
 			if (www_file != NULL) {
 				uint16_t flags;
 				flags = HTTP_RESOURCE_FOUND | HTTP_STATIC_RESOURCE;
@@ -123,7 +123,7 @@ void serverWakeup(uint16_t ev, uint16_t conn) {
 	if (ev & EV_HTTP_SENT) // submitted data was fully sent
 	{
 		DEBUG_PRINT("Last chunk post !\n");
-		  pico_http_submitData(conn, NULL, 0); /* send the final chunk */
+		pico_http_submitData(conn, NULL, 0); /* send the final chunk */
 	}
 	if (ev & EV_HTTP_CLOSE) {
 		DEBUG_PRINT("Close request...\n");
