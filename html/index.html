@@ -9,8 +9,8 @@
 	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.css">
 	<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
 	<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
-    <link rel="stylesheet" href="lib/minicolors/jquery.minicolors.css">
-	<script src="lib/minicolors/jquery.minicolors.min.js"></script>
+    	<link rel="stylesheet" href="http://linuxvanpelt.no-ip.org:5050/barlights/jquery.minicolors.css">
+	<script src="http://linuxvanpelt.no-ip.org:5050/barlights/jquery.minicolors.js"></script>
 	<style>
 		.minicolors-panel {
 			border: none !important;
@@ -33,10 +33,6 @@
 		}
  	</style>
 	<script>
-	/*
-		TODO brightness should always be 100%, so force this setting when receiving
-		Do some AJAX calls to set and get data
-	*/
 	$(document).ready( function() {
 		var color = $('#colorwheel').minicolors({
 			control: "wheel",
@@ -53,9 +49,7 @@
 					console.log("ajax call succeeded");
 				}
 			});
-				/*console.log(hex);
-				console.log($(this).minicolors('rgbObject').r);
-				console.log($(this).minicolors('rgbString', [55, 55, 101]));*/
+			console.log($(this).minicolors('rgbString', [55, 55, 101]));
 			}
 		});
 		

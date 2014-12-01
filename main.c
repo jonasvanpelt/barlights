@@ -9,11 +9,14 @@
 #include "pico_device.h"
 #include "pico_dev_tun.h"
 #include "pico_http_server.h"
+#include "www_files.h"
 
 /*------------------------------------------------------------------------------
  global variable declarations
  ------------------------------------------------------------------------------*/
-#define DEBUG_PRINT(...) do{ fprintf( stderr, __VA_ARGS__ ); } while( 0 )
+
+#define DEBUG 1
+#define DEBUG_PRINT(...) do{ if(DEBUG > 0) fprintf( stderr, __VA_ARGS__ ); } while( 0 )
 #define SIZE 1 * 1024
 
 /*------------------------------------------------------------------------------
@@ -22,7 +25,7 @@
 static void serverWakeup(uint16_t ev, uint16_t conn);
 static void picoTickTask(void);
 void getRgbFromResource(char *resource, uint8_t *r, uint8_t *g, uint8_t *b);
-
+const struct Www_file * find_www_file(char * filename);
 /*------------------------------------------------------------------------------
  global variable declarations
  ------------------------------------------------------------------------------*/
@@ -33,10 +36,19 @@ char http_buffer[SIZE];
 /*------------------------------------------------------------------------------
  implementation code
  --------------------------------------------------------------------------------*/
+const struct Www_file * find_www_file(char * filename) {
+	uint16_t i;
+	for (i = 0; i < num_files; i++) {
+		if (strcmp(www_files[i].filename, filename) == 0) {
+			return &www_files[i];
+		}
+	}
+	return NULL;
+}
 
 void getRgbFromResource(char *resource, uint8_t *r, uint8_t *g, uint8_t *b) {
 
-	char* token = strtok(&resource[11], "-");
+	char* token = strtok(resource, "-");
 	int i = 0;
 
 	while (token) {
@@ -59,73 +71,66 @@ void getRgbFromResource(char *resource, uint8_t *r, uint8_t *g, uint8_t *b) {
 }
 
 void serverWakeup(uint16_t ev, uint16_t conn) {
-	static FILE * f;
-	char buffer[SIZE];
 
 	if (ev & EV_HTTP_CON) {
-		printf("New connection received....\n");
+		DEBUG_PRINT("New connection received....\n");
 		pico_http_server_accept();
 	}
 	if (ev & EV_HTTP_REQ) // new header received
 	{
 		//int read;
 		char * resource;
-		printf("Header request was received...\n");
-		printf("> Resource : %s\n", pico_http_getResource(conn));
+		DEBUG_PRINT("Header request was received...\n");
+		DEBUG_PRINT("> Resource : %s\n", pico_http_getResource(conn));
 		resource = pico_http_getResource(conn);
 
-		// Accepting request
-		/*if (strcmp(resource, "/") == 0 || strcmp(resource, "index.html") == 0 || strcmp(resource, "/index.html") == 0) {
-		 printf("Accepted connection...\n");
-		 pico_http_respond(conn, HTTP_RESOURCE_FOUND);
-		 f = fopen("html/index.html", "r");
-		 if (!f) {
-		 fprintf(stderr, "Unable to open the file /test/examples/index.html\n");
-		 exit(1);
-		 }
-		 read = fread(buffer, 1, SIZE, f);
-		 pico_http_submitData(conn, buffer, read);
-		 } else*/
-		if (strstr(resource, "rgb")) {
+		if (strstr(resource, "/rgb")) {
 			uint8_t r, g, b;
-			printf("Accepted connection...\n");
+			DEBUG_PRINT("Accepted connection...\n");
 
 			pico_http_respond(conn, HTTP_RESOURCE_FOUND);
-			getRgbFromResource(resource, &r, &g, &b);
-			printf("Received rgb values: %d %d %d\n", r, g, b);
+			getRgbFromResource(&resource[11], &r, &g, &b);
+			DEBUG_PRINT("Received rgb values: %d %d %d\n", r, g, b);
 
+		} else if (strcmp(resource, "/") == 0) {
+			resource = "/index.html";
 		} else {
-			// reject
-			printf("Rejected connection...\n");
-			pico_http_respond(conn, HTTP_RESOURCE_NOT_FOUND);
+
+			/* search in flash resources */
+			struct Www_file * www_file;
+			www_file = find_www_file((const char *)resource + 1);
+			if (www_file != NULL) {
+				uint16_t flags;
+				flags = HTTP_RESOURCE_FOUND | HTTP_STATIC_RESOURCE;
+				if (www_file->cacheable) {
+					flags = flags | HTTP_CACHEABLE_RESOURCE;
+				}
+				pico_http_respond(conn, flags);
+				pico_http_submitData(conn, www_file->content, (int) *www_file->filesize);
+			} else { /* not found */
+				/* reject */
+				DEBUG_PRINT("Rejected connection...\n");
+				pico_http_respond(conn, HTTP_RESOURCE_NOT_FOUND);
+			}
 		}
 	}
 	if (ev & EV_HTTP_PROGRESS) // submitted data was sent
 	{
 		uint16_t sent, total;
 		pico_http_getProgress(conn, &sent, &total);
-		printf("Chunk statistics : %d/%d sent\n", sent, total);
+		DEBUG_PRINT("Chunk statistics : %d/%d sent\n", sent, total);
 	}
 	if (ev & EV_HTTP_SENT) // submitted data was fully sent
 	{
-		int read;
-		read = fread(buffer, 1, SIZE, f);
-		printf("Chunk was sent...\n");
-		if (read > 0) {
-			printf("Sending another chunk...\n");
-			pico_http_submitData(conn, buffer, read);
-		} else {
-			printf("Last chunk !\n");
-			pico_http_submitData(conn, NULL, 0); // send the final chunk
-			fclose(f);
-		}
+		DEBUG_PRINT("Last chunk post !\n");
+		  pico_http_submitData(conn, NULL, 0); /* send the final chunk */
 	}
 	if (ev & EV_HTTP_CLOSE) {
-		printf("Close request...\n");
+		DEBUG_PRINT("Close request...\n");
 		pico_http_close(conn);
 	}
 	if (ev & EV_HTTP_ERROR) {
-		printf("Error on server...\n");
+		DEBUG_PRINT("Error on server...\n");
 		pico_http_close(conn);
 	}
 }
