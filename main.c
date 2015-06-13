@@ -24,7 +24,6 @@
  ------------------------------------------------------------------------------*/
 static void serverWakeup(uint16_t ev, uint16_t conn);
 static void picoTickTask(void);
-void getRgbFromResource(char *resource, uint8_t *r, uint8_t *g, uint8_t *b);
 const struct Www_file * find_www_file(char * filename);
 /*------------------------------------------------------------------------------
  global variable declarations
@@ -32,6 +31,12 @@ const struct Www_file * find_www_file(char * filename);
 
 static struct pico_device *pico_dev;
 char http_buffer[SIZE];
+
+static int autoColor = 0;
+static uint8_t sR, sG, sB;
+/*R, G and B are each 1 byte, so we have 2^24 color combinations*/
+static uint32_t colorCounter = 0;
+
 
 /*------------------------------------------------------------------------------
  implementation code
@@ -46,28 +51,97 @@ const struct Www_file * find_www_file(char * filename) {
 	return NULL;
 }
 
-void getRgbFromResource(char *resource, uint8_t *r, uint8_t *g, uint8_t *b) {
+uint8_t hexCharToNumber(char c) {
 
-	char* token = strtok(resource, "-");
-	int i = 0;
+	uint8_t value = 0;
 
-	while (token) {
-		switch (i) {
-		case 0:
-			*r = atoi(token);
-			break;
-		case 1:
-			*g = atoi(token);
-			break;
-		case 2:
-			*b = atoi(token);
-			break;
-		default:
-			break;
-		}
-		token = strtok(NULL, "-");
-		i++;
+	/*NOTE: Function only accepts lower case hex signs*/
+	switch (c) {
+	case '0':
+		value = 0;
+		break;
+	case '1':
+		value = 1;
+		break;
+	case '2':
+		value = 2;
+		break;
+	case '3':
+		value = 3;
+		break;
+	case '4':
+		value = 4;
+		break;
+	case '5':
+		value = 5;
+		break;
+	case '6':
+		value = 6;
+		break;
+	case '7':
+		value = 7;
+		break;
+	case '8':
+		value = 8;
+		break;
+	case '9':
+		value = 9;
+		break;
+	case 'a':
+		value = 10;
+		break;
+	case 'b':
+		value = 11;
+		break;
+	case 'c':
+		value = 12;
+		break;
+	case 'd':
+		value = 13;
+		break;
+	case 'e':
+		value = 14;
+		break;
+	case 'f':
+		value = 15;
+		break;
+	default:
+		value = 0;
+		break;
 	}
+
+	return value;
+}
+
+void sendPage(uint16_t conn, char * resource) {
+	/* search in flash resources */
+	const struct Www_file * www_file;
+	www_file = find_www_file((char *) resource + 1);
+	if (www_file != NULL) {
+		uint16_t flags;
+		flags = HTTP_RESOURCE_FOUND | HTTP_STATIC_RESOURCE;
+		if (www_file->cacheable) {
+			flags = flags | HTTP_CACHEABLE_RESOURCE;
+		}
+		pico_http_respond(conn, flags);
+		pico_http_submitData(conn, (void *) www_file->content,
+				(int) *www_file->filesize);
+	} else { /* not found */
+		/* reject */
+		DEBUG_PRINT("Rejected connection...\n");
+		pico_http_respond(conn, HTTP_RESOURCE_NOT_FOUND);
+	}
+}
+
+void getRgbFromHttpBody(char *resource, uint8_t *r,
+		uint8_t *g, uint8_t *b) {
+
+	/* This is the kind of string we will receive:
+	 * colorHex=%23000000
+	 */
+	*r = (hexCharToNumber(resource[12]) << 4) | hexCharToNumber(resource[13]);
+	*g = (hexCharToNumber(resource[14]) << 4) | hexCharToNumber(resource[15]);
+	*b = (hexCharToNumber(resource[16]) << 4) | hexCharToNumber(resource[17]);
 }
 
 void serverWakeup(uint16_t ev, uint16_t conn) {
@@ -80,38 +154,47 @@ void serverWakeup(uint16_t ev, uint16_t conn) {
 	{
 		//int read;
 		char * resource;
+		char * body;
 		DEBUG_PRINT("Header request was received...\n");
 		DEBUG_PRINT("> Resource : %s\n", pico_http_getResource(conn));
 		resource = pico_http_getResource(conn);
 
-		if (strstr(resource, "/rgb")) {
-			uint8_t r, g, b;
+		if (strstr(resource, "setColor")) {
+
 			DEBUG_PRINT("Accepted connection...\n");
 
-			pico_http_respond(conn, HTTP_RESOURCE_FOUND);
-			getRgbFromResource(&resource[11], &r, &g, &b);
-			DEBUG_PRINT("Received rgb values: %d %d %d\n", r, g, b);
+			/*Get the POST data*/
+			body = pico_http_getBody(conn);
 
+			getRgbFromHttpBody(&body[0], &sR, &sG, &sB);
+
+			pico_http_respond_redirect(conn);
+
+
+			DEBUG_PRINT("body: %s\n", body);
+			DEBUG_PRINT("Received rgb values: %d %d %d\n", sR, sG, sB);
+
+		} else if (strstr(resource, "autoColor")) {
+			pico_http_respond_redirect(conn);
+
+			if (autoColor == 0) {
+
+				DEBUG_PRINT("Enabled automatic color selection\n");
+
+
+				autoColor = 1;
+
+				/*Start the color counter from the current selected color*/
+				colorCounter = (sR << 16) | (sG << 8) | sB;
+			} else {
+				DEBUG_PRINT("Disabled automatic color selection\n");
+				autoColor = 0;
+			}
 		} else {
 			if (strcmp(resource, "/") == 0) {
 				resource = "/index.html";
 			}
-			/* search in flash resources */
-			struct Www_file * www_file;
-			www_file = find_www_file((const char *) resource + 1);
-			if (www_file != NULL) {
-				uint16_t flags;
-				flags = HTTP_RESOURCE_FOUND | HTTP_STATIC_RESOURCE;
-				if (www_file->cacheable) {
-					flags = flags | HTTP_CACHEABLE_RESOURCE;
-				}
-				pico_http_respond(conn, flags);
-				pico_http_submitData(conn, www_file->content, (int) *www_file->filesize);
-			} else { /* not found */
-				/* reject */
-				DEBUG_PRINT("Rejected connection...\n");
-				pico_http_respond(conn, HTTP_RESOURCE_NOT_FOUND);
-			}
+			sendPage(conn, resource);
 		}
 	}
 	if (ev & EV_HTTP_PROGRESS) // submitted data was sent
@@ -140,7 +223,7 @@ static void picoTickTask(void) {
 	struct pico_ip4 my_ip;
 	struct pico_ip4 netmask;
 
-	pico_string_to_ipv4("192.168.2.150", &my_ip.addr);
+	pico_string_to_ipv4("192.168.4.1", &my_ip.addr);
 	pico_string_to_ipv4("255.255.255.0", &netmask.addr);
 
 	DEBUG_PRINT("picoTest start!\n");

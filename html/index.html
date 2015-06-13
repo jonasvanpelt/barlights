@@ -1,80 +1,64 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 
-<title>Tass Bar Lights</title>
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
 
-	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.css">
-	<script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
-	<script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
-    	<link rel="stylesheet" href="http://linuxvanpelt.no-ip.org:5050/barlights/jquery.minicolors.css">
-	<script src="http://linuxvanpelt.no-ip.org:5050/barlights/jquery.minicolors.js"></script>
-	<style>
-		.minicolors-panel {
-			border: none !important;
-			width: 150px;
-			background: none !important;
-		}
-		.minicolors-slider {
-			display: none !important;
-		}
-		
-		.center {
-			margin-left: auto;
-			margin-right: auto;
-			width: 150px;
-			display: block;
-		}
-		
-		.center-text {
-			text-align: center;
-		}
- 	</style>
-	<script>
-	$(document).ready( function() {
-		var color = $('#colorwheel').minicolors({
-			control: "wheel",
-			inline: true,
-			defaultValue: "#FFAAFF",
-			changeDelay: 100,
-			change: function(hex) {
-		 
-			$.ajax({
-				type : "GET",
-				url : "http://192.168.2.150/rgb",
-				data : "value=" + $(this).minicolors('rgbObject').r +"-"+$(this).minicolors('rgbObject').g + "-"+$(this).minicolors('rgbObject').b ,
-				success : function(msg) {
-					console.log("ajax call succeeded");
-				}
-			});
-			console.log($(this).minicolors('rgbString', [55, 55, 101]));
-			}
-		});
-		
-		//console.log(color.rgbObject());
-	});
-	</script>
-	
+body
+{
+	font-family: Verdana, Arial;
+	font-size: 13px;
+	line-height: 1.73em;
+}
+
+#container
+{
+	margin-left:auto;
+	margin-right:auto;
+	width:900px;
+	border:1px solid #3095B4;
+	text-align:center;
+}
+
+h1
+{
+	font-size:26px;
+	color: #3095B4;
+}
+
+#submit
+{
+}
+
+</style>
+
+<title>Altran ESP Barlights</title>
+
 </head>
 <body>
-	<div data-role="page">
-		<div data-role="header">
-			<h1>Bar Lights</h1>
-		</div><!-- /header -->
-
-		<div data-role="content">
-			<p class="center-text">Change the color below</p>
-			<span class="center">
-				<input type="text" id="colorwheel" class="demo center" data-role="none">
-			</span>
-		</div><!-- /content -->
+	<div id = "container">
+		<header>
+		<img alt="Altran" src="picotcp.jpg"/>
+		</header>
 		
-		<div data-role="footer">
-			<h4>&copy; TASS</h4>
-		</div><!-- /footer -->
-
-	</div><!-- /page -->
+		<h1>ESP8266 Barlights</h1>
+	
+		<form method="POST" action="setColor">	 
+		<input id="colorHex" type="color" name="colorHex"/>
+		<br>
+		<input type="submit" value="Set Color" /> 
+		</form>
+		
+		<form method="POST" action="autoColor">	 
+		<input type="submit" value="Toggle Automatic Color Selection" /> 
+		</form>
+	
+		
+		<footer>
+			<p>&copy; Altran Intelligent Systems</p>	
+		</footer>	
+	</div>
 </body>
+
 </html>

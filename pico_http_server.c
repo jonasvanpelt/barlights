@@ -53,6 +53,15 @@ int constructReturnOkHeader(char* headerstring, int cacheable, const char* conte
     return strlen(headerstring);
 }
 
+int constructRedirectHeader(char* headerstring, int cacheable, const char* contenttype)
+{
+    strcat(headerstring, "HTTP/1.1 204 No Content\r\n");
+    strcat(headerstring, "Transfer-Encoding: chunked\r\n");
+    strcat(headerstring, "Connection: close\r\n");
+    strcat(headerstring, "\r\n");
+    return strlen(headerstring);
+}
+
 
 struct httpServer
 {
@@ -444,6 +453,51 @@ int pico_http_respond(uint16_t conn, uint16_t code)
         return HTTP_RETURN_ERROR;
     }
 }
+
+int pico_http_respond_redirect(uint16_t conn)
+{
+    struct httpClient *client = findClient(conn);
+
+    if(!client)
+    {
+        dbg("Client not found !\n");
+        return HTTP_RETURN_ERROR;
+    }
+	client->state = HTTP_WAIT_STATIC_DATA;
+	char retheader[256];
+	memset(retheader, 0, 256);
+
+	/* Try to guess MIME type */
+	const char* mimetype = pico_http_get_mimetype(client->resource);
+	int length = constructRedirectHeader(retheader, HTTP_STATIC_RESOURCE, mimetype);
+	return pico_socket_write(client->sck, retheader, length ); /* remove \0 */
+}
+
+
+//int pico_http_respond_redirect(uint16_t conn)
+//{
+//    struct httpClient *client = findClient(conn);
+//
+//    if(!client)
+//    {
+//        dbg("Client not found !\n");
+//        return HTTP_RETURN_ERROR;
+//    }
+//
+//    if(client->state == HTTP_WAIT_RESPONSE)
+//    {
+//        client->state = HTTP_WAIT_DATA;
+//        char retheader[256];
+//        memset(retheader, 0, 256);
+//        int length = constructRedirectHeader(retheader);
+//        return pico_socket_write(client->sck, retheader, length ); /* remove \0 */
+//    }
+//    else
+//    {
+//        dbg("Bad state for the client \n");
+//        return HTTP_RETURN_ERROR;
+//    }
+//}
 
 /*
  * API used to submit data to the client.

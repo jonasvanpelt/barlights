@@ -8,7 +8,7 @@ add it to the list of files.
 Alexander Zuliani --- I somehow managed to write unreadable python. Sorry for that
 """
 
-listOfFiles = ["index.html"]
+listOfFiles = ["index.html","picotcp.jpg"]
 
 def write_header_top(handle):
 	header="""#ifndef WWW_FILES_H_
